@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Intro Animation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    /* === DESIGN TOKENS === */
+    :root {
+      --color-bg-start:     #1a3a5c;
+      --color-bg-end:       #fef9ee;
+      --color-spine:        #3b1a08;
+      --color-spine-end:    #6b3410;
+      --color-cover:        #8b4513;
+      --color-cover-mid:    #6b3010;
+      --color-cover-end:    #5a2808;
+      --color-back:         #7c3d12;
+      --color-back-end:     #5a2a08;
+      --color-cross:        #c8956a;
+      --color-page-bg:      #1a3a5c;
+      --color-page-text:    #fef9ee;
+
+      --font-family:        'EB Garamond', Georgia, serif;
+      --font-size-dropcap:  20px;
+      --font-size-body:     6px;
+      --line-height-body:   9px;
+
+      --bible-w:            220px;
+      --bible-h:            280px;
+      --spine-w:            18px;
+      --bible-radius:       10px;
+      --glow-color:         #c8956a;
+      --glow-near:          0.45;
+      --glow-far:           0.18;
+
+      --duration-appear:    0.8s;
+      --duration-open:      1.4s;
+      --duration-zoom1:     1.8s;
+      --duration-zoom2:     1.1s;
+
+      --delay-appear:       700ms;
+      --delay-open:         900ms;
+      --delay-zoom1:        400ms;
+
+      --ease-standard:      cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-blast:         cubic-bezier(0.2, 0, 0.3, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: var(--color-bg-start);
+      transition: background-color 0.5s ease;
+      font-family: var(--font-family);
+    }
+
+    /* === APPEARANCE LAYER === */
+    #bible-appear {
+      opacity: 0;
+      transform: translateY(40px) scale(0.85);
+      transition:
+        opacity var(--duration-appear) ease-out,
+        transform var(--duration-appear) ease-out;
+    }
+    #bible-appear.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* === ZOOM LAYER === */
+    #bible-zoom {
+      width: var(--bible-w);
+      height: var(--bible-h);
+      transform-origin: 29px 18px;
+      transition: transform var(--duration-zoom1) var(--ease-standard);
+      position: relative;
+      border-radius: var(--bible-radius);
+      box-shadow: 0 0 40px 8px var(--glow-near-color), 0 0 80px 20px var(--glow-far-color);
+    }
+    #bible-zoom.zoom1 {
+      transform: scale(7);
+    }
+    #bible-zoom.zoom2 {
+      transform: scale(2000);
+      transition: transform var(--duration-zoom2) var(--ease-blast);
+    }
+
+    /* === PERSPECTIVE WRAPPER === */
+    #bible-3d {
+      perspective: 900px;
+      width: var(--bible-w);
+      height: var(--bible-h);
+      position: relative;
+    }
+
+    /* === SPINE === */
+    #spine {
+      position: absolute;
+      left: 0; top: 0;
+      width: var(--spine-w);
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-spine) 0%, var(--color-spine-end) 100%);
+      border-radius: var(--bible-radius) 0 0 var(--bible-radius);
+      z-index: 2;
+    }
+
+    /* === BACK COVER === */
+    #back-cover {
+      position: absolute;
+      top: 0; height: 100%;
+      left: var(--spine-w);
+      width: calc(var(--bible-w) - var(--spine-w));
+      background: linear-gradient(135deg, var(--color-back) 0%, var(--color-back-end) 100%);
+      box-shadow: 4px 4px 20px rgba(0,0,0,0.5);
+      border-radius: 0 var(--bible-radius) var(--bible-radius) 0;
+      z-index: 1;
+    }
+
+    /* === OPEN PAGES === */
+    #pages {
+      position: absolute;
+      top: 0; height: 100%;
+      left: var(--spine-w);
+      width: calc(var(--bible-w) - var(--spine-w));
+      background: var(--color-page-bg);
+      border-radius: 0 var(--bible-radius) var(--bible-radius) 0;
+      z-index: 3;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.3s ease 0.4s;
+    }
+    #pages.visible { opacity: 1; }
+
+    #page-inner {
+      padding: 8px 8px 14px 8px;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #drop-cap {
+      font-family: var(--font-family);
+      font-weight: 700;
+      font-size: var(--font-size-dropcap);
+      line-height: var(--font-size-dropcap);
+      color: var(--color-page-text);
+      float: left;
+      margin-right: 2px;
+      margin-top: 1px;
+    }
+
+    #page-text {
+      font-family: var(--font-family);
+      font-size: var(--font-size-body);
+      line-height: var(--line-height-body);
+      color: var(--color-page-text);
+      opacity: 0.85;
+    }
+
+    /* === FRONT COVER === */
+    #front-cover {
+      position: absolute;
+      top: 0; height: 100%;
+      left: var(--spine-w);
+      width: calc(var(--bible-w) - var(--spine-w));
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      background: linear-gradient(135deg, var(--color-cover) 0%, var(--color-cover-mid) 50%, var(--color-cover-end) 100%);
+      box-shadow: 4px 4px 20px rgba(0,0,0,0.5);
+      border-radius: 0 var(--bible-radius) var(--bible-radius) 0;
+      z-index: 4;
+      transition: transform var(--duration-open) var(--ease-standard);
+    }
+    #front-cover.open {
+      transform: rotateY(-175deg);
+    }
+
+    #cover-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      backface-visibility: hidden;
+    }
+
+    #cross-svg rect { fill: var(--color-cross); }
+
+    #holy-bible-text {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 600;
+      color: var(--color-cross);
+      font-family: var(--font-family);
+    }
+
+    /* === EDIT PANEL === */
+    #edit-panel {
+      position: fixed;
+      right: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 260px;
+      background: rgba(12, 12, 18, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-right: none;
+      border-radius: 16px 0 0 16px;
+      box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+      overflow-y: auto;
+      max-height: 90vh;
+      font-family: system-ui, sans-serif;
+      font-size: 12px;
+      color: #ccc;
+      padding: 16px;
+      z-index: 1000;
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #edit-panel.collapsed {
+      transform: translateY(-50%) translateX(260px);
+    }
+
+    #panel-toggle {
+      position: absolute;
+      left: -36px; top: 50%;
+      transform: translateY(-50%);
+      width: 36px; height: 44px;
+      background: rgba(12, 12, 18, 0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-right: none;
+      border-radius: 8px 0 0 8px;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .panel-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    .section-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #666;
+      margin: 14px 0 8px;
+      font-weight: 600;
+    }
+
+    .control-row {
+      margin-bottom: 10px;
+    }
+
+    .control-row label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      color: #aaa;
+      font-size: 11px;
+    }
+
+    .control-row label .val {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .control-row input[type="range"] {
+      width: 100%;
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
+
+    .color-swatch-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-swatch-wrap input[type="color"] {
+      width: 28px; height: 22px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+    }
+
+    .hex-label {
+      font-size: 10px;
+      color: #888;
+      font-family: monospace;
+    }
+
+    #replay-btn, #export-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 8px;
+      color: #a5b4fc;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      transition: background 0.15s;
+    }
+    #replay-btn:hover, #export-btn:hover {
+      background: rgba(99,102,241,0.25);
+    }
+
+    #export-btn { margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- BIBLE ANIMATION -->
+  <div id="bible-appear">
+    <div id="bible-zoom">
+      <div id="bible-3d">
+
+        <div id="spine"></div>
+        <div id="back-cover"></div>
+
+        <!-- Open pages with Genesis 1 -->
+        <div id="pages">
+          <div id="page-inner">
+            <span id="drop-cap">I</span>
+            <p id="page-text">n the beginning God created the heavens and the earth. Now the earth was formless and empty, darkness was over the surface of the deep, and the Spirit of God was hovering over the waters.
+
+And God said, "Let there be light," and there was light. God saw that the light was good, and he separated the light from the darkness. God called the light "day," and the darkness he called "night." And there was evening, and there was morning—the first day.
+
+And God said, "Let there be a vault between the waters to separate water from water." So God made the vault and separated the water under the vault from the water above it. And it was so. God called the vault "sky." And there was evening, and there was morning—the second day.
+
+And God said, "Let the water under the sky be gathered to one place, and let dry ground appear." And it was so. God called the dry ground "land," and the gathered waters he called "seas." And God saw that it was good.
+
+Then God said, "Let the land produce vegetation: seed-bearing plants and trees on the land that bear fruit with seed in it, according to their various kinds." And it was so. The land produced vegetation: plants bearing seed according to their kinds and trees bearing fruit with seed in it according to their kinds. And God saw that it was good. And there was evening, and there was morning—the third day.
+
+And God said, "Let there be lights in the vault of the sky to separate the day from the night, and let them serve as signs to mark sacred times, and days and years." And it was so. God made two great lights—the greater light to govern the day and the lesser light to govern the night. He also made the stars. And God saw that it was good.</p>
+          </div>
+        </div>
+
+        <!-- Front cover with cross -->
+        <div id="front-cover">
+          <div id="cover-inner">
+            <svg id="cross-svg" width="32" height="42" viewBox="0 0 32 42" fill="none">
+              <rect x="13" y="0" width="6" height="42" rx="2" />
+              <rect x="0" y="12" width="32" height="6" rx="2" />
+            </svg>
+            <span id="holy-bible-text">Holy Bible</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PANEL -->
+  <div id="edit-panel">
+    <button id="panel-toggle">⚙</button>
+    <div id="panel-body">
+      <div class="panel-header">Live Edit</div>
+
+      <!-- COLORS -->
+      <div class="section-label">Colors</div>
+
+      <div class="control-row">
+        <label>Background (start)</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-bg-start" value="#1a3a5c" />
+          <span class="hex-label" id="h-bg-start">#1a3a5c</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Background (end)</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-bg-end" value="#fef9ee" />
+          <span class="hex-label" id="h-bg-end">#fef9ee</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Cover Color</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-cover" value="#8b4513" />
+          <span class="hex-label" id="h-cover">#8b4513</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Spine Color</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-spine" value="#3b1a08" />
+          <span class="hex-label" id="h-spine">#3b1a08</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Cross &amp; Text</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-cross" value="#c8956a" />
+          <span class="hex-label" id="h-cross">#c8956a</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Page Background</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-page" value="#1a3a5c" />
+          <span class="hex-label" id="h-page">#1a3a5c</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Page Text</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-text" value="#fef9ee" />
+          <span class="hex-label" id="h-text">#fef9ee</span>
+        </div>
+      </div>
+
+      <!-- TIMING -->
+      <div class="section-label">Timing</div>
+
+      <div class="control-row">
+        <label>Appear Speed <span class="val" id="v-appear">0.8s</span></label>
+        <input type="range" id="r-appear" min="0.2" max="2.5" step="0.1" value="0.8" />
+      </div>
+      <div class="control-row">
+        <label>Cover Open Speed <span class="val" id="v-open">1.4s</span></label>
+        <input type="range" id="r-open" min="0.3" max="3" step="0.1" value="1.4" />
+      </div>
+      <div class="control-row">
+        <label>Zoom 1 Speed <span class="val" id="v-zoom1">1.8s</span></label>
+        <input type="range" id="r-zoom1" min="0.3" max="4" step="0.1" value="1.8" />
+      </div>
+      <div class="control-row">
+        <label>Zoom 2 Speed <span class="val" id="v-zoom2">1.1s</span></label>
+        <input type="range" id="r-zoom2" min="0.2" max="3" step="0.1" value="1.1" />
+      </div>
+
+      <!-- TYPOGRAPHY -->
+      <div class="section-label">Typography</div>
+
+      <div class="control-row">
+        <label>Drop Cap Size <span class="val" id="v-dropcap">20px</span></label>
+        <input type="range" id="r-dropcap" min="10" max="40" step="1" value="20" />
+      </div>
+      <div class="control-row">
+        <label>Body Text Size <span class="val" id="v-body">6px</span></label>
+        <input type="range" id="r-body" min="4" max="12" step="0.5" value="6" />
+      </div>
+
+      <!-- BIBLE SIZE -->
+      <div class="section-label">Bible Size</div>
+
+      <div class="control-row">
+        <label>Width <span class="val" id="v-bw">220px</span></label>
+        <input type="range" id="r-bw" min="120" max="340" step="4" value="220" />
+      </div>
+      <div class="control-row">
+        <label>Height <span class="val" id="v-bh">280px</span></label>
+        <input type="range" id="r-bh" min="160" max="420" step="4" value="280" />
+      </div>
+
+      <!-- SHAPE -->
+      <div class="section-label">Shape</div>
+
+      <div class="control-row">
+        <label>Corner Radius <span class="val" id="v-radius">10px</span></label>
+        <input type="range" id="r-radius" min="0" max="40" step="1" value="10" />
+      </div>
+
+      <!-- GLOW -->
+      <div class="section-label">Glow</div>
+
+      <div class="control-row">
+        <label>Glow Color</label>
+        <div class="color-swatch-wrap">
+          <input type="color" id="c-glow" value="#c8956a" />
+          <span class="hex-label" id="h-glow">#c8956a</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <label>Near Glow <span class="val" id="v-glow-near">0.45</span></label>
+        <input type="range" id="r-glow-near" min="0" max="1" step="0.01" value="0.45" />
+      </div>
+      <div class="control-row">
+        <label>Far Glow <span class="val" id="v-glow-far">0.18</span></label>
+        <input type="range" id="r-glow-far" min="0" max="1" step="0.01" value="0.18" />
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="section-label">Actions</div>
+      <button id="replay-btn">↺ Replay Animation</button>
+      <button id="export-btn">↓ Export CSS Tokens</button>
+    </div>
+  </div>
+
+  <script>
+    const root = document.documentElement
+    const appear = document.getElementById('bible-appear')
+    const zoom = document.getElementById('bible-zoom')
+    const cover = document.getElementById('front-cover')
+    const pages = document.getElementById('pages')
+    const body = document.body
+    let animating = false
+
+    // ── Token map for export ─────────────────────────────────────────────
+    const TOKEN_NAMES = [
+      '--color-bg-start','--color-bg-end','--color-spine','--color-spine-end',
+      '--color-cover','--color-cover-mid','--color-cover-end',
+      '--color-back','--color-back-end','--color-cross',
+      '--color-page-bg','--color-page-text',
+      '--font-size-dropcap','--font-size-body','--line-height-body',
+      '--bible-w','--bible-h','--spine-w','--bible-radius',
+      '--glow-color','--glow-near','--glow-far',
+      '--duration-appear','--duration-open','--duration-zoom1','--duration-zoom2',
+    ]
+
+    // ── Glow helper ──────────────────────────────────────────────────────
+    function hexToRgb(hex) {
+      const r = parseInt(hex.slice(1,3),16)
+      const g = parseInt(hex.slice(3,5),16)
+      const b = parseInt(hex.slice(5,7),16)
+      return [r,g,b]
+    }
+
+    function updateGlow() {
+      const hex = document.getElementById('c-glow').value
+      const near = parseFloat(document.getElementById('r-glow-near').value)
+      const far  = parseFloat(document.getElementById('r-glow-far').value)
+      const [r,g,b] = hexToRgb(hex)
+      root.style.setProperty('--glow-near-color', `rgba(${r},${g},${b},${near})`)
+      root.style.setProperty('--glow-far-color',  `rgba(${r},${g},${b},${far})`)
+      root.style.setProperty('--glow-color', hex)
+      root.style.setProperty('--glow-near', near)
+      root.style.setProperty('--glow-far', far)
+    }
+
+    // init glow on load
+    updateGlow()
+
+    // ── Animation sequence ───────────────────────────────────────────────
+    function wait(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+    function getDuration(varName) {
+      const val = getComputedStyle(root).getPropertyValue(varName).trim()
+      return parseFloat(val) * 1000
+    }
+
+    function reset() {
+      // Kill all transitions so reset is instantaneous
+      ;[appear, zoom, cover, pages].forEach(el => el.style.transition = 'none')
+      appear.classList.remove('visible')
+      zoom.classList.remove('zoom1', 'zoom2')
+      zoom.style.transform = ''
+      cover.classList.remove('open')
+      pages.classList.remove('visible')
+      body.style.backgroundColor = getComputedStyle(root).getPropertyValue('--color-bg-start').trim()
+    }
+
+    async function runSequence() {
+      if (animating) return
+      animating = true
+      reset()
+      // Force a repaint so transition:none takes effect before we re-enable transitions
+      void appear.offsetHeight
+      ;[appear, zoom, cover, pages].forEach(el => el.style.transition = '')
+      await wait(50) // let browser settle
+
+      // 1. Bible floats in
+      await wait(700)
+      appear.style.transition = `opacity var(--duration-appear) ease-out, transform var(--duration-appear) ease-out`
+      appear.classList.add('visible')
+      await wait(getDuration('--duration-appear') + 900)
+
+      // 2. Cover flips open
+      cover.classList.add('open')
+      pages.classList.add('visible')
+      await wait(getDuration('--duration-open') + 400)
+
+      // 3. Zoom into pages
+      zoom.style.transition = `transform var(--duration-zoom1) var(--ease-standard, cubic-bezier(0.4,0,0.2,1))`
+      zoom.classList.add('zoom1')
+      await wait(getDuration('--duration-zoom1'))
+
+      // 4. Blast into "I" + bg transition
+      body.style.backgroundColor = getComputedStyle(root).getPropertyValue('--color-bg-end').trim()
+      zoom.style.transition = `transform var(--duration-zoom2) cubic-bezier(0.2,0,0.3,1)`
+      zoom.classList.remove('zoom1')
+      zoom.classList.add('zoom2')
+      await wait(getDuration('--duration-zoom2') + 200)
+
+      animating = false
+    }
+
+    // ── Panel toggle ─────────────────────────────────────────────────────
+    const panel = document.getElementById('edit-panel')
+    const toggleBtn = document.getElementById('panel-toggle')
+
+    function closePanel() {
+      panel.classList.add('collapsed')
+      toggleBtn.textContent = '⚙'
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('collapsed')
+      toggleBtn.textContent = panel.classList.contains('collapsed') ? '⚙' : '✕'
+    })
+
+    document.addEventListener('mousedown', e => {
+      if (!panel.classList.contains('collapsed') && !panel.contains(e.target)) {
+        closePanel()
+      }
+    })
+
+    // ── Color controls ───────────────────────────────────────────────────
+    const colorMap = [
+      { id: 'c-bg-start',  hex: 'h-bg-start',  token: '--color-bg-start',
+        onchange: v => { if (!animating) body.style.backgroundColor = v } },
+      { id: 'c-bg-end',    hex: 'h-bg-end',    token: '--color-bg-end' },
+      { id: 'c-cover',     hex: 'h-cover',     token: '--color-cover',
+        onchange: v => { document.getElementById('front-cover').style.backgroundImage =
+          `linear-gradient(135deg, ${v} 0%, ${getComputedStyle(root).getPropertyValue('--color-cover-mid').trim()} 50%, ${getComputedStyle(root).getPropertyValue('--color-cover-end').trim()} 100%)` }},
+      { id: 'c-spine',     hex: 'h-spine',     token: '--color-spine' },
+      { id: 'c-cross',     hex: 'h-cross',     token: '--color-cross',
+        onchange: v => {
+          document.querySelectorAll('#cross-svg rect').forEach(r => r.setAttribute('fill', v))
+          document.getElementById('holy-bible-text').style.color = v
+        }},
+      { id: 'c-page',      hex: 'h-page',      token: '--color-page-bg',
+        onchange: v => document.getElementById('pages').style.backgroundColor = v },
+      { id: 'c-text',      hex: 'h-text',      token: '--color-page-text',
+        onchange: v => {
+          document.getElementById('drop-cap').style.color = v
+          document.getElementById('page-text').style.color = v
+        }},
+      { id: 'c-glow',      hex: 'h-glow',      token: '--glow-color',
+        onchange: () => updateGlow() },
+    ]
+
+    // ── Range controls ───────────────────────────────────────────────────
+    const rangeMap = [
+      { id: 'r-appear',    val: 'v-appear',    token: '--duration-appear',   unit: 's' },
+      { id: 'r-open',      val: 'v-open',      token: '--duration-open',     unit: 's' },
+      { id: 'r-zoom1',     val: 'v-zoom1',     token: '--duration-zoom1',    unit: 's' },
+      { id: 'r-zoom2',     val: 'v-zoom2',     token: '--duration-zoom2',    unit: 's' },
+      { id: 'r-dropcap',   val: 'v-dropcap',   token: '--font-size-dropcap', unit: 'px',
+        onchange: v => {
+          document.getElementById('drop-cap').style.fontSize = v + 'px'
+          document.getElementById('drop-cap').style.lineHeight = v + 'px'
+        }},
+      { id: 'r-body',      val: 'v-body',      token: '--font-size-body',    unit: 'px',
+        onchange: v => document.getElementById('page-text').style.fontSize = v + 'px' },
+      { id: 'r-bw',        val: 'v-bw',        token: '--bible-w',           unit: 'px',
+        onchange: v => {
+          document.getElementById('bible-zoom').style.width = v + 'px'
+          document.getElementById('bible-3d').style.width = v + 'px'
+        }},
+      { id: 'r-bh',        val: 'v-bh',        token: '--bible-h',           unit: 'px',
+        onchange: v => {
+          document.getElementById('bible-zoom').style.height = v + 'px'
+          document.getElementById('bible-3d').style.height = v + 'px'
+        }},
+      { id: 'r-radius',    val: 'v-radius',    token: '--bible-radius',      unit: 'px' },
+      { id: 'r-glow-near', val: 'v-glow-near', token: '--glow-near',         unit: '', onchange: () => updateGlow() },
+      { id: 'r-glow-far',  val: 'v-glow-far',  token: '--glow-far',          unit: '', onchange: () => updateGlow() },
+    ]
+
+    // ── localStorage persistence ─────────────────────────────────────────
+    const LS_KEY = 'bible-intro-settings'
+
+    function saveSettings() {
+      const settings = {}
+      colorMap.forEach(({ id }) => { const el = document.getElementById(id); if (el) settings[id] = el.value })
+      rangeMap.forEach(({ id }) => { const el = document.getElementById(id); if (el) settings[id] = el.value })
+      localStorage.setItem(LS_KEY, JSON.stringify(settings))
+    }
+
+    function applyColorEntry({ id, hex, token, onchange }) {
+      const input = document.getElementById(id)
+      const label = document.getElementById(hex)
+      const v = input.value
+      root.style.setProperty(token, v)
+      if (label) label.textContent = v
+      if (onchange) onchange(v)
+    }
+
+    function applyRangeEntry({ id, val, token, unit, onchange }) {
+      const input = document.getElementById(id)
+      const label = document.getElementById(val)
+      const v = parseFloat(input.value)
+      root.style.setProperty(token, v + unit)
+      if (label) label.textContent = v + (unit || '')
+      if (onchange) onchange(v)
+    }
+
+    // Restore saved values into inputs
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}')
+    colorMap.forEach(({ id }) => { if (saved[id] !== undefined) { const el = document.getElementById(id); if (el) el.value = saved[id] } })
+    rangeMap.forEach(({ id }) => { if (saved[id] !== undefined) { const el = document.getElementById(id); if (el) el.value = saved[id] } })
+
+    // Apply all values (restored or default) to CSS vars + DOM
+    colorMap.forEach(applyColorEntry)
+    rangeMap.forEach(applyRangeEntry)
+    updateGlow()
+
+    // Wire listeners
+    colorMap.forEach(entry => {
+      const input = document.getElementById(entry.id)
+      const label = document.getElementById(entry.hex)
+      input.addEventListener('input', e => {
+        const v = e.target.value
+        root.style.setProperty(entry.token, v)
+        if (label) label.textContent = v
+        if (entry.onchange) entry.onchange(v)
+        saveSettings()
+      })
+    })
+
+    rangeMap.forEach(entry => {
+      const input = document.getElementById(entry.id)
+      const label = document.getElementById(entry.val)
+      input.addEventListener('input', e => {
+        const v = parseFloat(e.target.value)
+        root.style.setProperty(entry.token, v + entry.unit)
+        if (label) label.textContent = v + (entry.unit || '')
+        if (entry.onchange) entry.onchange(v)
+        saveSettings()
+      })
+    })
+
+    // ── Replay ───────────────────────────────────────────────────────────
+    document.getElementById('replay-btn').addEventListener('click', runSequence)
+
+    // ── Export CSS tokens ────────────────────────────────────────────────
+    document.getElementById('export-btn').addEventListener('click', () => {
+      const style = getComputedStyle(root)
+      const css = ':root {\n' + TOKEN_NAMES.map(t =>
+        `  ${t}: ${style.getPropertyValue(t).trim()};`
+      ).join('\n') + '\n}'
+      const blob = new Blob([css], { type: 'text/css' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'bible-intro-tokens.css'
+      a.click()
+    })
+
+    // ── Auto-play on load ────────────────────────────────────────────────
+    runSequence()
+  </script>
+</body>
+</html>
